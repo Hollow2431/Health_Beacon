@@ -8,7 +8,8 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from time import sleep
 import time
-import oxyMeter
+import oxyMeter as max30100
+
 
 mx30 = max30100.MAX30100()
 mx30.enable_spo2()
