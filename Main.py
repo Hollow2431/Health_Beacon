@@ -1,38 +1,31 @@
 import board
 import busio as io
 import adafruit_mlx90614
+import time
 import Adafruit_GPIO.SPI as SPI
 import Adafruit_SSD1306
+from smbus2 import SMBus
+from mlx90614 import MLX90614
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from time import sleep
-import time
-import oxyMeter as max30100
 
+'''
+import socket
+import sys
 
-mx30 = max30100.MAX30100()
-mx30.enable_spo2()
+HOST, PORT = "192.168.0.35", 9999
+'''
 
-# while 1:
-
-
-
-# Raspberry Pi pin configuration:
+i2c = io.I2C(board.SCL, board.SDA, frequency=100000)
+mlx =adafruit_mlx90614.MLX90614(i2c)
 RST = 24
 # Note the following are only used with SPI:
 DC = 23
 SPI_PORT = 0
 SPI_DEVICE = 0
 
-# Beaglebone Black pin configuration:
-# RST = 'P9_12'
-# Note the following are only used with SPI:
-# DC = 'P9_15'
-# SPI_PORT = 1
-# SPI_DEVICE = 0
-
-# 128x32 display with hardware I2C:
 disp = Adafruit_SSD1306.SSD1306_128_32(rst=RST)
 
 
@@ -50,70 +43,97 @@ width = disp.width
 height = disp.height
 image = Image.new('1', (width, height))
 draw = ImageDraw.Draw(image)
+bus = SMBus(1)
+time.sleep(1)
 
-padding = 2
-shape_width = 20
-top = padding
-bottom = height-padding
-# Move left to right keeping track of the current x position for drawing shapes.
-x = padding
-
-i2c = io.I2C(board.SCL, board.SDA, frequency=100000)
-mlx =adafruit_mlx90614.MLX90614(i2c)
 a1=5
 listAmbTemp = []
 listbt= []
 while 1:
     for x in range (a1):
+        
 
-        ambiantTemp ="{:.2f}".format(mlx.ambient_temperature)
+
+        
+        sensor = MLX90614(bus, address=0x5A)
+
+        celcius = sensor.get_object_1();
+        faren = (celcius*1.8)+32
+        print("Body Temperature : ",(round(celcius,2)))
+
+        ambient = sensor.get_ambient()
+        limited_ambient = round(ambient, 2)
+        print ("Ambient Temperature :", limited_ambient,u"\N{DEGREE SIGN}C")
+
+        
+        '''ambiantTemp ="{:.2f}".format(mlx.ambient_temperature)
         targetTemp ="{:.2f}".format(mlx.object_temperature)
         #print(type(ambiantTemp))
         print("ambiant temperature:", ambiantTemp ,"\N{DEGREE SIGN}C")
-        print("body temperature:", targetTemp ,"\N{DEGREE SIGN}C")
+        print("body temperature:", targetTemp ,"\N{DEGREE SIGN}C")'''
 
 
-        listAmbTemp.append(float(ambiantTemp))
-        listbt.append(float(targetTemp))
+        listAmbTemp.append(float(ambient))
+        listbt.append(float(celcius))
         #averageAmbiantTemp = (val1+val2)
-        mx30.read_sensor()
-
-        mx30.ir,max.red
-        hb = int(mx30.inr / 100)
-        spo2 = int(mx30.red / 100)
-
-
-        if mx30.ir != mx30.buffer_ir :
-            print("Pulse:",hb);
-
-        if mx.red != mx30.buffer_red :
-            print ("SPO2:",spo2);
-
-        # time.sleep(2)
-
-
+        
         sleep(2)
-    averageAmbiantTemp = ((listAmbTemp[0]+listAmbTemp[1]+listAmbTemp[2]+listAmbTemp[3]+listAmbTemp[4])/5)
-    averageAmbiantTemp =round(averageBodyTemp, 2)
-    averageBodyTemp = ((listbt[0]+listbt[1]+listbt[2]+listbt[3]+listbt[4])/5)
-    averageBodyTemp = round(averageBodyTemp, 2)
+    averageAmbiantTemp = round((listAmbTemp[0]+listAmbTemp[1]+listAmbTemp[2]+listAmbTemp[3]+listAmbTemp[4])/5,1)
+    averageBodyTemp = round((listbt[0]+listbt[1]+listbt[2]+listbt[3]+listbt[4])/5,1)
+    print(listbt)
     print("average ambient temperature",averageAmbiantTemp)
-    print("average Body temperature", averageBodyTemp)
-    listAmbTemp.clear()
-    listbt.clear()
-    # Load default font.
-    font = ImageFont.load_default()
-    # draw.text((x, top),    'Temp: '+ averageBodyTemp,  font=font, fill=255,)
-    # draw.text((x, top+10), 'SpO2: ', font=font, fill=255)
-    draw.text((x, top),       "SpO2" + str(spo2),  font=font, fill=255)
-    draw.text((x, top+8),    'Temp: '+ str(averageBodyTemp), font=font, fill=255)
-    draw.text((x, top+16),    'Bp: Normal',  font=font, fill=255)
-    draw.text((x, top+25),    'Pulse: 'str(hb),  font=font, fill=255)
+    print("average Body temperature",averageBodyTemp)
+    print ("20 sec timer")
+    
+    padding = -2
+    shape_width = 20
+    top = padding
+    bottom = height-padding
+# Move left to right keeping track of the current x position for drawing shapes.
+    x = padding
 
+# Load default font.
+    font = ImageFont.load_default()
+    draw.text((x, top),       " Ambient Temp:" + str(averageAmbiantTemp),  font=font, fill=255)
+    draw.text((x, top+8),     " Body Temp:" + str(averageBodyTemp ), font=font, fill=255)
+    draw.text((x, top+16),    " Oxygen %",  font=font, fill=255)
+    draw.text((x, top+25),    " BPM:",  font=font, fill=255)
 
     # Display image.
     disp.image(image)
     disp.display()
-    sleep(2)
-#print(listAmbTemp[0])
+    
+    listbt.clear()
+    listAmbTemp.clear()
+    
+    """
+    data = '1-100-100-' + str(averageBodyTemp) + '-100'
+    # data --> <id>-<bp>-<pulse>-<temp>-<rp>
+    
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    # Connect to server and send data
+        sock.connect((HOST, PORT))
+        sock.sendall(bytes(data + "\n", "utf-8"))
+
+    # Receive data from the server and shut down
+    # received = str(sock.recv(1024), "utf-8")
+
+    print("Sent: {}".format(data))
+    """
+    sleep(5)
+    #print(listAmbTemp[0])
+
+
+
+
+
+# Beaglebone Black pin configuration:
+# RST = 'P9_12'
+# Note the following are only used with SPI:
+# DC = 'P9_15'
+# SPI_PORT = 1
+# SPI_DEVICE = 0
+
+# 128x32 display with hardware I2C:
+
 
