@@ -10,7 +10,11 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from time import sleep
+import max30100
 
+
+mx30 = max30100.MAX30100()
+mx30.enable_spo2()
 '''
 import socket
 import sys
@@ -48,7 +52,9 @@ time.sleep(1)
 
 a1=5
 listAmbTemp = []
-listbt= []
+listbt = []
+listhb = []
+listspo = []
 while 1:
     for x in range (a1):
         
@@ -71,15 +77,24 @@ while 1:
         #print(type(ambiantTemp))
         print("ambiant temperature:", ambiantTemp ,"\N{DEGREE SIGN}C")
         print("body temperature:", targetTemp ,"\N{DEGREE SIGN}C")'''
-
-
+        
+        mx30.read_sensor()
+        
+        mx30.ir , mx30.red
+        
+        hb = int(mx30.ir/100)
+        spo2 = int(mx30.red/100)
         listAmbTemp.append(float(ambient))
         listbt.append(float(celcius))
+        listhb.append(float(hb))
+        listspo.append(float(spo2))
         #averageAmbiantTemp = (val1+val2)
         
         sleep(2)
     averageAmbiantTemp = round((listAmbTemp[0]+listAmbTemp[1]+listAmbTemp[2]+listAmbTemp[3]+listAmbTemp[4])/5,1)
     averageBodyTemp = round((listbt[0]+listbt[1]+listbt[2]+listbt[3]+listbt[4])/5,1)
+    avghb = round((listhb[0]+listhb[1]+listhb[2]+listhb[3]+listhb[4])/5,1)
+    avgspo = round((listspo[0]+listspo[1]+listspo[2]+listspo[3]+listspo[4])/5,1)
     print(listbt)
     print("average ambient temperature",averageAmbiantTemp)
     print("average Body temperature",averageBodyTemp)
@@ -96,8 +111,8 @@ while 1:
     font = ImageFont.load_default()
     draw.text((x, top),       " Ambient Temp:" + str(averageAmbiantTemp),  font=font, fill=255)
     draw.text((x, top+8),     " Body Temp:" + str(averageBodyTemp ), font=font, fill=255)
-    draw.text((x, top+16),    " Oxygen %",  font=font, fill=255)
-    draw.text((x, top+25),    " BPM:",  font=font, fill=255)
+    draw.text((x, top+16),    " Oxygen %" + str(avgspo)  font=font, fill=255)
+    draw.text((x, top+25),    " BPM:" + str(avghb),  font=font, fill=255)
 
     # Display image.
     disp.image(image)
@@ -105,7 +120,8 @@ while 1:
     
     listbt.clear()
     listAmbTemp.clear()
-    
+    listhb.clear()
+    listspo.clear()
     """
     data = '1-100-100-' + str(averageBodyTemp) + '-100'
     # data --> <id>-<bp>-<pulse>-<temp>-<rp>
